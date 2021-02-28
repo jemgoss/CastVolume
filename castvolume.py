@@ -5,11 +5,10 @@ import logging
 import pychromecast
 import zeroconf
 import threading
-
-logging.basicConfig(format="%(asctime)s: %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.DEBUG)
+import sys
 
 class Application(tk.Frame):
-    def __init__(self, master=None):
+    def __init__(self, debug, master=None):
         tk.Frame.__init__(self, master)
         self.master.title("Volume")
         #self.master.geometry('250x150')
@@ -51,7 +50,8 @@ class Application(tk.Frame):
         self.volume.configure(state="disabled")
 
         tk.Button(self, text='Quit', command=self.quit).grid(row=3, column=0, sticky=tk.W)
-        tk.Button(self, text='Threads', command=self.print_threads).grid(row=3, sticky=tk.E)
+        if debug:
+            tk.Button(self, text='Threads', command=self.print_threads).grid(row=3, sticky=tk.E)
 
         self.pack()
 
@@ -65,7 +65,7 @@ class Application(tk.Frame):
         self.after(2000, self.populate_targets)
 
     def populate_targets(self):
-        print("populate_targets")
+        #print("populate_targets")
         pychromecast.stop_discovery(self.browser)
         self.devices = self.listener.devices
         # Groups at the end
@@ -77,7 +77,7 @@ class Application(tk.Frame):
         #self.changeTarget(self.target.get())
 
     def onTargetSelected(self, event):
-        print("onTargetSelected", event, event.widget.get(), self.targetval.get())
+        #print("onTargetSelected", event, event.widget.get(), self.targetval.get())
         target = event.widget.get()
         device = next(filter(lambda d: d[3] == target, self.devices))
         if self.cast:
@@ -107,12 +107,15 @@ class Application(tk.Frame):
 
     def doUpdateVolume(self):
         self._job = None
-        print("setVolume:", self.volume.get(), self.volumeval.get())
+        #print("setVolume:", self.volume.get(), self.volumeval.get())
         self.cast.set_volume(self.volumeval.get() / 100.0)
 
     def print_threads(self):
         print(",".join(map(lambda x: x.name, threading.enumerate())))
 
 if __name__ == "__main__":
-    app = Application()
+    debug = len(sys.argv) > 1 and (sys.argv[1] == "-d" or sys.argv[1] == "--debug")
+    if debug:
+        logging.basicConfig(format="%(asctime)s: %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.DEBUG)
+    app = Application(debug)
     app.mainloop()

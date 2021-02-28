@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ChromeCast Volume Control
+Comment=Control Volume for discovered Chromecasts
+Categories=AudioVideo
+Icon=multimedia-volume-control
+Exec=sh -c "xhost +local:; sudo systemd-nspawn -i /dev/sda3 /home/jem/cast-env/bin/python /home/jem/CastVolume/castvolume.py; xhost -local:"
+Terminal=false
+StartupNotify=false
