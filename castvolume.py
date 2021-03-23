@@ -60,17 +60,19 @@ class Application(tk.Frame):
 
     def start_discovery(self):
         #self.browser = pychromecast.get_chromecasts(blocking=False, callback=self.cast_discovered)
-        self.listener = pychromecast.CastListener()
-        self.browser = pychromecast.start_discovery(self.listener, zeroconf.Zeroconf())
+        self.browser = pychromecast.CastBrowser(pychromecast.SimpleCastListener(), zeroconf.Zeroconf())
+        self.browser.start_discovery()
         self.after(2000, self.populate_targets)
 
     def populate_targets(self):
         #print("populate_targets")
-        pychromecast.stop_discovery(self.browser)
-        self.devices = self.listener.devices
-        # Groups at the end
-        self.devices.sort(key=lambda d: (d[2] == "Google Cast Group", d[3]))
-        self.target['values'] = list(map(lambda d: d[3], self.devices))
+        self.browser.stop_discovery() # we could leave the discovery going
+        # TODO: sort so Groups are at the end?
+        self.target['values'] = list(map(lambda d: d.friendly_name, self.browser.devices.values()))
+
+        # # Groups at the end
+        # self.devices.sort(key=lambda d: (d[2] == "Google Cast Group", d[3]))
+        # self.target['values'] = list(map(lambda d: d[3], self.devices))
 
         # TODO: Auto-select first that is active.
         #self.target.current(1)
@@ -79,10 +81,10 @@ class Application(tk.Frame):
     def onTargetSelected(self, event):
         #print("onTargetSelected", event, event.widget.get(), self.targetval.get())
         target = event.widget.get()
-        device = next(filter(lambda d: d[3] == target, self.devices))
+        device = next(filter(lambda d: d.friendly_name == target, self.browser.devices.values()))
         if self.cast:
             self.cast.disconnect()
-        self.cast = pychromecast.get_chromecast_from_service(device, self.browser.zc)
+        self.cast = pychromecast.get_chromecast_from_cast_info(device, self.browser.zc)
         self.cast.wait()
         self.volume.configure(state="normal")
         self.volumeval.set(self.cast.status.volume_level * 100)
