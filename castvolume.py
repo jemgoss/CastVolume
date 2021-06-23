@@ -19,12 +19,13 @@ class Application(tk.Frame):
         #tk.Label(self, text="Target:", font=('', 24)).grid(row=0, sticky=tk.W)
         tk.Label(self, text="Target:").grid(row=0, sticky=tk.W, padx=10, pady=10)
         self.targetval = tk.StringVar(self.master)
+        self.targetval.set("Loading...")
         self.target = ttk.Combobox(self,
             textvariable=self.targetval,
             #values=("foo", "bar", "baz"),
             state='readonly',
             #font=('', 24),
-            width=10)
+            width=15)
         self.target.grid(row=1, sticky=tk.W, padx=10)
         self.target.current()
         #self.target.index(0)
@@ -77,6 +78,8 @@ class Application(tk.Frame):
         # TODO: Auto-select first that is active.
         #self.target.current(1)
         #self.changeTarget(self.target.get())
+        # In the meantime, clear displayed "Loading..." value:
+        self.targetval.set("[Select device]")
 
     def onTargetSelected(self, event):
         #print("onTargetSelected", event, event.widget.get(), self.targetval.get())
