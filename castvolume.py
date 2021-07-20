@@ -1,14 +1,27 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font
+from argparse import ArgumentParser
 import logging
 import pychromecast
 import zeroconf
+import json
 import threading
 import sys
+import os
+
+DEFAULT_CONFIG_FILE=os.path.expanduser("~/.config/castVolume.conf")
+
+DEFAULT_CONFIG = {
+    "discoveryTimeout": 2000,
+    "RememberLastTarget": True,
+    "InitializeTarget": True
+}
 
 class Application(tk.Frame):
-    def __init__(self, debug, master=None):
+    def __init__(self, config, debug, master=None):
+        self.config = config
+
         tk.Frame.__init__(self, master)
         self.master.title("Volume")
         #self.master.geometry('250x150')
@@ -25,7 +38,7 @@ class Application(tk.Frame):
             #values=("foo", "bar", "baz"),
             state='readonly',
             #font=('', 24),
-            width=15)
+            width=19)
         self.target.grid(row=1, sticky=tk.W, padx=10)
         self.target.current()
         #self.target.index(0)
@@ -63,7 +76,7 @@ class Application(tk.Frame):
         #self.browser = pychromecast.get_chromecasts(blocking=False, callback=self.cast_discovered)
         self.browser = pychromecast.CastBrowser(pychromecast.SimpleCastListener(), zeroconf.Zeroconf())
         self.browser.start_discovery()
-        self.after(2000, self.populate_targets)
+        self.after(self.config.get("discoveryTimeout"), self.populate_targets)
 
     def populate_targets(self):
         #print("populate_targets")
@@ -75,15 +88,22 @@ class Application(tk.Frame):
         # self.devices.sort(key=lambda d: (d[2] == "Google Cast Group", d[3]))
         # self.target['values'] = list(map(lambda d: d[3], self.devices))
 
-        # TODO: Auto-select first that is active.
-        #self.target.current(1)
-        #self.changeTarget(self.target.get())
-        # In the meantime, clear displayed "Loading..." value:
+        if config.get("InitializeTarget"):
+            target = config.get("LastTarget")
+            if target:
+                idx = self.target['values'].index(target)
+                if idx:
+                    self.target.current(idx)
+                    self.changeTarget(target)
+                    return
+        # No target: replace "Loading..." with prompt:
         self.targetval.set("[Select device]")
 
     def onTargetSelected(self, event):
         #print("onTargetSelected", event, event.widget.get(), self.targetval.get())
-        target = event.widget.get()
+        self.changeTarget(event.widget.get())
+
+    def changeTarget(self, target):
         device = next(filter(lambda d: d.friendly_name == target, self.browser.devices.values()))
         if self.cast:
             self.cast.disconnect()
@@ -92,6 +112,8 @@ class Application(tk.Frame):
         self.volume.configure(state="normal")
         self.volumeval.set(self.cast.status.volume_level * 100)
         self.cast.register_status_listener(self)
+        if self.config.get("RememberLastTarget"):
+            self.config["LastTarget"] = target
 
     def new_cast_status(self, status):
         """ Called when a new status received from the Chromecast. """
@@ -119,8 +141,19 @@ class Application(tk.Frame):
         print(",".join(map(lambda x: x.name, threading.enumerate())))
 
 if __name__ == "__main__":
-    debug = len(sys.argv) > 1 and (sys.argv[1] == "-d" or sys.argv[1] == "--debug")
-    if debug:
+    parser = ArgumentParser(description="CastVolume")
+    parser.add_argument("--config", "-c", default=DEFAULT_CONFIG_FILE, help="configuration file")
+    parser.add_argument("--debug", "-d", action='store_true', help="enable debug")
+    args = parser.parse_args()
+
+    if args.debug:
         logging.basicConfig(format="%(asctime)s: %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.DEBUG)
-    app = Application(debug)
+    if os.path.exists(args.config):
+        with open(args.config) as f:
+            config = json.load(f)
+    else:
+        config = DEFAULT_CONFIG
+    app = Application(config, args.debug)
     app.mainloop()
+    with open(args.config, "w") as f:
+        json.dump(config, f, indent=2)
