@@ -80,7 +80,7 @@ class Application(tk.Frame):
 
     def populate_targets(self):
         #print("populate_targets")
-        self.browser.stop_discovery() # we could leave the discovery going
+        #self.browser.stop_discovery() # we could leave the discovery going
         # TODO: sort so Groups are at the end?
         self.target['values'] = list(map(lambda d: d.friendly_name, self.browser.devices.values()))
 
