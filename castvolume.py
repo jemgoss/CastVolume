@@ -70,17 +70,33 @@ class Application(tk.Frame):
         self.pack()
 
         self.cast = None
-        self.start_discovery()
-
-    def start_discovery(self):
-        #self.browser = pychromecast.get_chromecasts(blocking=False, callback=self.cast_discovered)
-        self.browser = pychromecast.CastBrowser(pychromecast.SimpleCastListener(), zeroconf.Zeroconf())
+        self.browser = pychromecast.CastBrowser(self, zeroconf.Zeroconf())
+        # This allows us to connect to the initial device as soon as it's discovered.
+        self.connect_on_discovery = None
+        if config.get("InitializeTarget"):
+            self.connect_on_discovery = config.get("LastTarget")
         self.browser.start_discovery()
-        self.after(self.config.get("discoveryTimeout"), self.populate_targets)
+        self.after(self.config.get("discoveryTimeout"), self.complete_discovery)
 
-    def populate_targets(self):
-        #print("populate_targets")
-        #self.browser.stop_discovery() # we could leave the discovery going
+    def add_cast(self, uuid, service):
+        if self.connect_on_discovery:
+            device = self.browser.devices[uuid]
+            if device.friendly_name == self.connect_on_discovery:
+                self.targetval.set(device.friendly_name)
+                self.connectDevice(device)
+
+    def remove_cast(self, uuid, service, cast_info):
+        # print("remove_cast", uuid, service, cast_info)
+        pass
+
+    def update_cast(self, uuid, service):
+        # print("update_cast", uuid, service)
+        pass
+
+    def complete_discovery(self):
+        # Called a short while after discovery was started.
+        # We could stop the discovery, but would then have to create a new ZC instance for the cast listener.
+        #self.browser.stop_discovery()
         # TODO: sort so Groups are at the end?
         self.target['values'] = list(map(lambda d: d.friendly_name, self.browser.devices.values()))
 
@@ -88,23 +104,17 @@ class Application(tk.Frame):
         # self.devices.sort(key=lambda d: (d[2] == "Google Cast Group", d[3]))
         # self.target['values'] = list(map(lambda d: d[3], self.devices))
 
-        if config.get("InitializeTarget"):
-            target = config.get("LastTarget")
-            if target:
-                idx = self.target['values'].index(target)
-                if idx:
-                    self.target.current(idx)
-                    self.changeTarget(target)
-                    return
-        # No target: replace "Loading..." with prompt:
-        self.targetval.set("[Select device]")
+        if self.cast is None:
+            # No target selected during discovery: replace "Loading..." with prompt:
+            self.targetval.set("[Select device]")
 
     def onTargetSelected(self, event):
         #print("onTargetSelected", event, event.widget.get(), self.targetval.get())
-        self.changeTarget(event.widget.get())
-
-    def changeTarget(self, target):
+        target = event.widget.get()
         device = next(filter(lambda d: d.friendly_name == target, self.browser.devices.values()))
+        self.connectDevice(device)
+
+    def connectDevice(self, device):
         if self.cast:
             self.cast.disconnect()
         self.cast = pychromecast.get_chromecast_from_cast_info(device, self.browser.zc)
@@ -113,7 +123,7 @@ class Application(tk.Frame):
         self.volumeval.set(self.cast.status.volume_level * 100)
         self.cast.register_status_listener(self)
         if self.config.get("RememberLastTarget"):
-            self.config["LastTarget"] = target
+            self.config["LastTarget"] = device.friendly_name
 
     def new_cast_status(self, status):
         """ Called when a new status received from the Chromecast. """
