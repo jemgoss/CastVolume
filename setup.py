@@ -6,7 +6,7 @@ setup(
     author="Jeremy Goss",
     author_email="jem@goss-family.net",
     description="Simple Chromecast Audio volume control",
-    url="https://github.com/Jemgoss/CastVolume",
+    url="https://github.com/jemgoss/CastVolume",
     #packages=setuptools.find_packages(),
     #packages=["castvolume"],
     install_requires=["PyChromecast"],
