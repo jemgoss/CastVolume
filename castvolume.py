@@ -127,7 +127,8 @@ class Application(tk.Frame):
 
     def new_cast_status(self, status):
         """ Called when a new status received from the Chromecast. """
-        if status:
+        # Don't update when it's from our own job (otherwise we get a timeout from pychromecast).
+        if status and self._job is None:
             self.volumeval.set(status.volume_level * 100)
 
     def onMouseWheel(self, event):
@@ -143,9 +144,9 @@ class Application(tk.Frame):
         self._job = self.after(500, self.doUpdateVolume)
 
     def doUpdateVolume(self):
-        self._job = None
         #print("setVolume:", self.volume.get(), self.volumeval.get())
-        self.cast.set_volume(self.volumeval.get() / 100.0)
+        self.cast.set_volume(self.volumeval.get() / 100.0, 2.0)
+        self._job = None
 
     def print_threads(self):
         print(",".join(map(lambda x: x.name, threading.enumerate())))
