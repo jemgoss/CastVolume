@@ -2,15 +2,15 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font
 from argparse import ArgumentParser
+from pathlib import Path
 import logging
 import pychromecast
 import zeroconf
 import json
 import threading
 import sys
-import os
 
-DEFAULT_CONFIG_FILE=os.path.expanduser("~/.config/castVolume.conf")
+DEFAULT_CONFIG_FILE=Path("~/.config/castVolume.conf").expanduser()
 
 DEFAULT_CONFIG = {
     "discoveryTimeout": 2000,
@@ -18,7 +18,7 @@ DEFAULT_CONFIG = {
     "InitializeTarget": True
 }
 
-class Application(tk.Frame):
+class Application(tk.Frame, pychromecast.discovery.AbstractCastListener):
     def __init__(self, config, debug, master=None):
         self.config = config
 
@@ -127,7 +127,8 @@ class Application(tk.Frame):
 
     def new_cast_status(self, status):
         """ Called when a new status received from the Chromecast. """
-        if status:
+        # Don't update when it's from our own job (otherwise we get a timeout from pychromecast).
+        if status and self._job is None:
             self.volumeval.set(status.volume_level * 100)
 
     def onMouseWheel(self, event):
@@ -143,9 +144,9 @@ class Application(tk.Frame):
         self._job = self.after(500, self.doUpdateVolume)
 
     def doUpdateVolume(self):
-        self._job = None
         #print("setVolume:", self.volume.get(), self.volumeval.get())
-        self.cast.set_volume(self.volumeval.get() / 100.0)
+        self.cast.set_volume(self.volumeval.get() / 100.0, 2.0)
+        self._job = None
 
     def print_threads(self):
         print(",".join(map(lambda x: x.name, threading.enumerate())))
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 
     if args.debug:
         logging.basicConfig(format="%(asctime)s: %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.DEBUG)
-    if os.path.exists(args.config):
+    if Path(args.config).exists():
         with open(args.config) as f:
             config = json.load(f)
     else:
